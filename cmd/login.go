@@ -33,6 +33,15 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		apiURL = "https://api.insighta.app"
 	}
 
+	// publicURL is used only for URLs opened in the browser (OAuth redirect).
+	// In Docker, INSIGHTA_API_URL points to the internal container hostname which
+	// the browser cannot resolve, so PUBLIC_API_URL should be set to the
+	// host-accessible address (e.g. http://localhost:8080) instead.
+	publicURL := os.Getenv("PUBLIC_API_URL")
+	if publicURL == "" {
+		publicURL = apiURL
+	}
+
 	// 1. Generate PKCE values
 	state, err := randomBase64(32)
 	if err != nil {
@@ -55,7 +64,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// 3. Build the GitHub OAuth URL via the backend
 	oauthURL := fmt.Sprintf(
 		"%s/auth/github?state=%s&code_challenge=%s&code_challenge_method=S256&redirect_uri=%s",
-		apiURL, state, codeChallenge, callbackURL,
+		publicURL, state, codeChallenge, callbackURL,
 	)
 
 	// 4. Start local callback server
