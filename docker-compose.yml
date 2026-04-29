@@ -1,0 +1,14 @@
+services:
+  cli:
+    container_name: insighta-cli
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # If backend runs on the host machine, use host.docker.internal (Docker Desktop) or replace with backend host/IP
+      INSIGHTA_API_URL: ${INSIGHTA_API_URL:-http://host.docker.internal:8080}
+    volumes:
+      - ./cli-data:/root/.insighta # persist CLI credentials
+    entrypoint: ["/app/insighta"]
+    tty: true
+    stdin_open: true
