@@ -17,6 +17,15 @@ import (
 // the refresh attempt also fails — caller should prompt re-login.
 var ErrUnauthorized = errors.New("session expired — run: insighta login")
 
+// ErrRateLimited is returned when the server repeatedly responds with 429
+// after all retry attempts have been exhausted.
+var ErrRateLimited = errors.New("rate limit exceeded — please slow down and try again")
+
+const (
+	maxRetries    = 3
+	retryBaseWait = 500 * time.Millisecond
+)
+
 // Client wraps http.Client with automatic token refresh and credential
 // injection.
 type Client struct {
@@ -56,7 +65,7 @@ func (c *Client) Do(method, path string, body interface{}) ([]byte, int, error) 
 // doWithCreds sends the request; if a 401 comes back it tries one refresh
 // then retries.
 func (c *Client) doWithCreds(method, path string, body interface{}, token string) ([]byte, int, error) {
-	resp, raw, err := c.send(method, path, body, token)
+	resp, raw, err := c.sendWithRetry(method, path, body, token)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -70,7 +79,7 @@ func (c *Client) doWithCreds(method, path string, body interface{}, token string
 			return nil, resp, ErrUnauthorized
 		}
 		creds, _ = credentials.Load()
-		resp, raw, err = c.send(method, path, body, creds.AccessToken)
+		resp, raw, err = c.sendWithRetry(method, path, body, creds.AccessToken)
 		if err != nil {
 			return nil, resp, err
 		}
@@ -108,6 +117,21 @@ func (c *Client) send(method, path string, body interface{}, token string) (int,
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(res.Body)
 	return res.StatusCode, raw, nil
+}
+
+// sendWithRetry wraps send with exponential backoff on HTTP 429 responses.
+// Waits 500 ms, 1 s, 2 s between attempts before giving up.
+func (c *Client) sendWithRetry(method, path string, body interface{}, token string) (int, []byte, error) {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(retryBaseWait << (attempt - 1))
+		}
+		status, raw, err := c.send(method, path, body, token)
+		if err != nil || status != http.StatusTooManyRequests {
+			return status, raw, err
+		}
+	}
+	return http.StatusTooManyRequests, nil, ErrRateLimited
 }
 
 // refresh calls /auth/refresh, updates credentials on disk.
@@ -158,27 +182,33 @@ func (c *Client) GetRaw(path string) ([]byte, string, error) {
 		creds, _ = credentials.Load()
 	}
 
-	req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return nil, "", err
-	}
-	req.Header.Set("Authorization", "Bearer "+creds.AccessToken)
-	req.Header.Set("X-API-Version", "1")
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(retryBaseWait << (attempt - 1))
+		}
+		req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
+		if err != nil {
+			return nil, "", err
+		}
+		req.Header.Set("Authorization", "Bearer "+creds.AccessToken)
+		req.Header.Set("X-API-Version", "1")
 
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, "", err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
+		res, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, "", fmt.Errorf("request failed: %w", err)
+		}
 		raw, _ := io.ReadAll(res.Body)
-		return nil, "", fmt.Errorf("server returned %d: %s", res.StatusCode, string(raw))
-	}
+		res.Body.Close()
 
-	raw, err := io.ReadAll(res.Body)
-	contentDisposition := res.Header.Get("Content-Disposition")
-	return raw, contentDisposition, err
+		if res.StatusCode == http.StatusTooManyRequests {
+			continue
+		}
+		if res.StatusCode != http.StatusOK {
+			return nil, "", fmt.Errorf("server returned %d: %s", res.StatusCode, string(raw))
+		}
+		return raw, res.Header.Get("Content-Disposition"), nil
+	}
+	return nil, "", ErrRateLimited
 }
 
 // PostNoAuth sends a POST without auth headers (used for OAuth callback exchange).
