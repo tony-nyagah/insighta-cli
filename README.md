@@ -25,7 +25,7 @@ Download the latest release binary and place it on your `$PATH`.
 By default the CLI targets production. Override with:
 
 ```bash
-export INSIGHTA_API_URL=http://localhost:8080
+export API_URL=http://localhost:8080
 ```
 
 Credentials are stored in `~/.insighta/credentials.json` (owner read/write only).

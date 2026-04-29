@@ -26,7 +26,7 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	apiURL := os.Getenv("INSIGHTA_API_URL")
+	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
 		apiURL = "https://api.insighta.app"
 	}
@@ -79,7 +79,7 @@ func runWhoami(cmd *cobra.Command, args []string) error {
 	}
 
 	// We don't store the full user in credentials — ask the backend
-	apiURL := os.Getenv("INSIGHTA_API_URL")
+	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
 		apiURL = "https://api.insighta.app"
 	}

@@ -28,13 +28,13 @@ var loginCmd = &cobra.Command{
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
-	apiURL := os.Getenv("INSIGHTA_API_URL")
+	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
 		apiURL = "https://api.insighta.app"
 	}
 
 	// publicURL is used only for URLs opened in the browser (OAuth redirect).
-	// In Docker, INSIGHTA_API_URL points to the internal container hostname which
+	// In Docker, API_URL points to the internal container hostname which
 	// the browser cannot resolve, so PUBLIC_API_URL should be set to the
 	// host-accessible address (e.g. http://localhost:8080) instead.
 	publicURL := os.Getenv("PUBLIC_API_URL")

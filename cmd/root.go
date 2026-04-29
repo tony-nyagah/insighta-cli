@@ -17,7 +17,7 @@ var rootCmd = &cobra.Command{
 Authenticate with GitHub, query profiles, export data, and manage your account.
 
 Environment variables:
-  INSIGHTA_API_URL   Backend URL (default: https://api.insighta.app)`,
+  API_URL   Backend URL (default: https://api.insighta.app)`,
 	SilenceUsage: true,
 }
 

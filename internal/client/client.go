@@ -34,7 +34,7 @@ type Client struct {
 }
 
 func New() *Client {
-	base := os.Getenv("INSIGHTA_API_URL")
+	base := os.Getenv("API_URL")
 	if base == "" {
 		base = "https://api.insighta.app" // overridden per-user via env
 	}
