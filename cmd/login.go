@@ -125,6 +125,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	raw, status, err := client.PostNoAuth(exchangeURL, map[string]string{
 		"code":          code,
 		"code_verifier": codeVerifier,
+		"state":         state,
 	})
 	spin.Stop()
 
